@@ -16,14 +16,35 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # ดึงประวัติ Git ทั้งหมดมาให้ Sonar วิเคราะห์อย่างละเอียด
+          fetch-depth: 0
 
-      # เปลี่ยนมาใช้ Official CLI Scanner ตัวนี้ นิ่งและเสถียรบน WSL กว่ามากครับ
-      - name: SonarQube Scan Official CLI
-        uses: SonarSource/sonar-scanner-action@v2
+      # ดาวน์โหลดและติดตั้ง Sonar Scanner CLI ลงในเครื่องอัตโนมัติรอบเดียวจบ
+      - name: Install and Run SonarQube Scanner
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: http://localhost:9000 # ยิงเข้าพอร์ตเครื่องใน WSL ตรงๆ
+        run: |
+          echo "========================================="
+          echo "🔍 เริ่มต้นติดตั้งและสแกนด้วย Sonar Scanner"
+          echo "========================================="
+          
+          # 1. เช็กว่าในเครื่องมีคำสั่ง sonar-scanner ไหม ถ้าไม่มีให้โหลดมาตั้งค่าแบบพกพา (Portable)
+          if [ ! -d "$HOME/.sonar/sonar-scanner" ]; then
+            echo "📥 ไม่พบระบบสแกนในเครื่อง กำลังติดตั้งเวอร์ชันเสถียร..."
+            mkdir -p $HOME/.sonar
+            curl -sSLo $HOME/.sonar/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+            unzip -o -q $HOME/.sonar/sonar-scanner.zip -d $HOME/.sonar/
+            mv $HOME/.sonar/sonar-scanner-5.0.1.3006-linux $HOME/.sonar/sonar-scanner
+          fi
+          
+          # 2. เพิ่ม Path ลงในเซสชันนี้ชั่วคราว เพื่อให้เรียกใช้คำสั่งได้ทันที
+          export PATH="$HOME/.sonar/sonar-scanner/bin:$PATH"
+          
+          # 3. สั่งยิงสแกนโค้ดโปรเจกต์ส่งตรงเข้าเซิร์ฟเวอร์ SonarQube ในเครื่อง WSL ทันที
+          sonar-scanner \
+            -Dsonar.projectKey=python-cicd-project \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.token=$SONAR_TOKEN
 
   # 🔴 Job 2: สแกนหาช่องโหว่ความปลอดภัย (Trivy Vulnerability Scan)
   security-vulnerability-scan:
