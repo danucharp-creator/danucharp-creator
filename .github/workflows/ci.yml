@@ -20,11 +20,11 @@ jobs:
 
       # เปลี่ยนมาใช้ Official CLI Scanner ตัวนี้ นิ่งและเสถียรบน WSL กว่ามากครับ
       - name: SonarQube Scan Official CLI
-        uses: SonarSource/sonar-scanner-cli-action@v2
+        uses: SonarSource/sonar-scanner-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://localhost:9000 # ยิงเข้าพอร์ตเครื่องใน WSL ตรงๆ
-          
+
   # 🔴 Job 2: สแกนหาช่องโหว่ความปลอดภัย (Trivy Vulnerability Scan)
   security-vulnerability-scan:
     needs: sonarqube-analysis
