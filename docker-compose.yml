@@ -5,7 +5,7 @@ services:
     # เราจะให้ GitHub Actions เป็นคนสร้าง Image แล้วส่งไปเก็บที่ GitHub Container Registry (GHCR)
     image: ghcr.io/danucharp-creator/cicd-app:latest
     container_name: python_cicd_prod
-    restart: always
+    restart: no
     ports:
       - "5000:5000" # ปรับตัวเลขพอร์ตด้านหน้าตามที่แอปของคุณใช้งานจริงได้เลย
     environment:
