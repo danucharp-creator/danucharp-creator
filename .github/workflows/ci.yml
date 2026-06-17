@@ -1,0 +1,29 @@
+name: Python CI Pipeline
+
+# 1. เงื่อนไข: ให้ทำงานทุกครั้งที่มีการ Push โค้ดเข้ามาที่ branch main
+on:
+  push:
+    branches: [ "main" ]
+
+# 2. งานที่ต้องทำ
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest # สั่งเปิด Linux Server ตัวแถมของ GitHub ขึ้นมาทำงาน
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4 # ดึงโค้ดของเราลงมาใน Server ตัวนี้
+
+    - name: Set up Python
+      uses: actions/setup-python@v5 # ติดตั้ง Python
+      with:
+        python-node-version: '3.10'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip upgrade pip
+        pip install pytest
+
+    - name: Run Automated Tests
+      run: |
+        pytest test_app.py # สั่งรัน Test อัตโนมัติ
