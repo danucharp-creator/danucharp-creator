@@ -1,29 +1,38 @@
-name: Python CI Pipeline
+name: Python CI/CD Pipeline
 
-# 1. เงื่อนไข: ให้ทำงานทุกครั้งที่มีการ Push โค้ดเข้ามาที่ branch main
 on:
   push:
     branches: [ "main" ]
 
-# 2. งานที่ต้องทำ
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest # สั่งเปิด Linux Server ตัวแถมของ GitHub ขึ้นมาทำงาน
-
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4 # ดึงโค้ดของเราลงมาใน Server ตัวนี้
-
+    - uses: actions/checkout@v4
     - name: Set up Python
-      uses: actions/setup-python@v5 # ติดตั้ง Python
+      uses: actions/setup-python@v5
       with:
-        python-node-version: '3.10'
-
+        python-version: '3.10'
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pytest
-
     - name: Run Automated Tests
       run: |
-        pytest test_app.py # สั่งรัน Test อัตโนมัติ
+        pytest test_app.py
+
+  # 🚀 เพิ่ม Job ใหม่สำหรับทำการ Deployment
+  deploy:
+    needs: build-and-test # กฎเหล็ก: ต้องวิ่งไปรันเทสงานบน build-and-test ให้เขียวก่อน ถึงจะยอมทำขั้นตอนนี้
+    runs-on: ubuntu-latest
+    steps:
+    - name: Executing remote ssh commands to deploy
+      uses: appleboy/ssh-action@v1.0.3 # ปลั๊กอินมาตรฐานสำหรับยิง SSH
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          cd /home/danuchar/CICD
+          git pull origin main
+          echo "Deployment successful!"
