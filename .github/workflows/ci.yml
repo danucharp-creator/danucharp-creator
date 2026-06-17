@@ -1,4 +1,4 @@
-name: Production Docker CI/CD Pipeline
+name: Production Docker CI/CD Pipeline with Security Scanning
 
 on:
   push:
@@ -9,8 +9,41 @@ permissions:
   contents: read
 
 jobs:
-  # 🟢 Job 1: บิวด์แอปพลิเคชันเป็น Container Image แล้วเก็บไว้บนคลาวด์
+  # 🟢 Job 1: ตรวจสอบโค้ดเบื้องหลัง (SonarQube Analysis)
+  sonarqube-analysis:
+    runs-on: self-hosted # ให้วิ่งมาสแกนโดยใช้ Engine ที่เครื่องบ้านคุณ
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # บังคับให้ดึงประวัติ Git มาทั้งหมดเพื่อให้ Sonar วิเคราะห์ได้แม่นยำ
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v2.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: http://localhost:9000 # วิ่งเข้าเซิร์ฟเวอร์ในเครื่อง WSL ตรงๆ
+
+  # 🔴 Job 2: สแกนหาช่องโหว่ความปลอดภัย (Trivy Vulnerability Scan)
+  security-vulnerability-scan:
+    needs: sonarqube-analysis
+    runs-on: ubuntu-latest # ใช้พลังคลาวด์ช่วยสแกนตัวโค้ดก่อนบิวด์
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          exit-code: '1' # 🔥 ตรรกะเด็ด: ถ้าเจอช่องโหว่ระดับ CRITICAL ให้สั่งท่อพังทันที ห้ามปล่อยผ่าน!
+          severity: 'CRITICAL'
+
+  # 🟢 Job 3: บิวด์แอปพลิเคชันเป็น Container Image (ทำงานเมื่อผ่านการสแกนแล้วเท่านั้น)
   build-and-push-image:
+    needs: security-vulnerability-scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -30,11 +63,10 @@ jobs:
           push: true
           tags: ghcr.io/danucharp-creator/cicd-app:latest
 
-  # 🟢 Job 2: สั่งเดพิวลอยล์ตรงลงคอมบ้านผ่าน Docker Compose
+  # 🟢 Job 4: สั่งเดพิวลอยล์ลงคอมบ้านผ่าน Docker Compose
   deploy-to-home-server:
     needs: build-and-push-image
     runs-on: self-hosted
-
     steps:
       - name: Checkout docker-compose file only
         uses: actions/checkout@v4
@@ -45,15 +77,8 @@ jobs:
           echo "========================================="
           echo "🐋 เริ่มต้นกระบวนการอัปเดตระบบด้วย Docker"
           echo "========================================="
-          
-          # ใช้ Token ล็อกอินคลังเก็บของโดยใช้สิทธิ์ sudo ผ่านท่อสแตนด์บาย
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          
-          # ดึงและอัปเดต Container ด้วยพลังของ sudo เพื่อป้องกันเรื่อง Permission Denied
           sudo docker compose pull
           sudo docker compose up -d --build
-          
-          # เคลียร์ Image ขยะเก่าๆ ออกจากเครื่องทันที
           sudo docker image prune -f
-          
-          echo "🟢 เดพิวลอยล์แอปด้วย Container ผ่านฉลุยแล้วครับ!"
+          echo "🟢 เดพิวลอยล์แอปที่ผ่านการสแกนความปลอดภัยเรียบร้อยแล้ว!"
